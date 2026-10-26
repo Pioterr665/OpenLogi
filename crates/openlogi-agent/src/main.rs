@@ -42,6 +42,8 @@ mod status_item;
 mod takeover;
 #[cfg(target_os = "macos")]
 mod tray;
+#[cfg(target_os = "linux")]
+mod tray_linux;
 #[cfg(target_os = "windows")]
 mod tray_windows;
 mod virtual_keyboard;
@@ -118,7 +120,7 @@ fn main() {
     // macOS hosts the menu-bar item, which needs an NSApplication run loop on
     // the process main thread — so the async core (orchestrator, IPC, watchers,
     // hook) runs on the tokio runtime on a dedicated thread, and the main thread
-    // runs AppKit. Elsewhere there is no tray, so just block on the core.
+    // runs AppKit. Elsewhere the async core keeps the main thread.
     let device_io_signal = openlogi_hid::host::device_io_signal();
     #[cfg(target_os = "macos")]
     {
@@ -165,7 +167,12 @@ fn main() {
         resume_linux::register(device_io_signal.clone());
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         drop(device_io_signal);
-        runtime.block_on(lifecycle::run(config, shutdown_requests));
+        runtime.block_on(lifecycle::run(
+            config,
+            shutdown_requests,
+            #[cfg(target_os = "linux")]
+            shutdown_tx,
+        ));
     }
 }
 

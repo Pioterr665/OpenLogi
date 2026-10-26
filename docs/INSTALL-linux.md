@@ -330,6 +330,28 @@ systemd user manager before restarting `openlogi-agent.service`. The helper
 executables are resolved from `/usr/bin` and `/usr/local/bin`; missing helpers
 use the keyboard fallbacks above.
 
+## Tray icon (KDE and GNOME)
+
+The background agent provides a StatusNotifierItem tray icon with a device list,
+battery levels and charging/offline states. With one device, the panel shows its
+device-type icon from the system theme; with multiple devices, it shows OpenLogi.
+Use **Show Main Window** to open or
+focus the settings window, or **Quit OpenLogi** to stop the GUI and agent.
+Click a device in the list to open its settings directly, including when the
+settings window is not running yet. Each device keeps its own navigation target.
+Closing the settings window leaves the agent and tray running.
+
+KDE Plasma provides the tray host. On GNOME, enable the
+[AppIndicator and KStatusNotifierItem Support extension](https://extensions.gnome.org/extension/615/appindicator-support/).
+Without a tray host, the agent continues working and the GUI can still be
+opened from the application launcher. The tray registers when a host becomes
+available, including after a shell restart.
+
+The **Show in the notification area** setting applies immediately on Linux.
+Battery information is also available in the menu because some hosts do not
+display tooltips. On Wayland, bringing an existing window to the front remains
+subject to the compositor's focus policy.
+
 ## Known limitations
 
 | Limitation | Status |

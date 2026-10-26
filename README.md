@@ -163,7 +163,7 @@ Feature coverage depends on what each device reports; the app shows only the con
 | Mouse profile follows the window under the pointer | ✓ | ✓ | X11 only |
 | Media keys | Native | Native | D-Bus MPRIS |
 | Window-manager actions (desktops, Mission Control, …) | Native | Native equivalents | GNOME, KDE (KWin), Hyprland; some macOS-only actions do nothing |
-| Menu-bar / tray icon | ✓ | ✓ | — |
+| Menu-bar / tray icon | ✓ | ✓ | KDE; GNOME with an [AppIndicator extension](docs/INSTALL-linux.md#tray-icon-kde-and-gnome) |
 | In-app updates | Sparkle | Built-in | Built-in |
 
 ## Install

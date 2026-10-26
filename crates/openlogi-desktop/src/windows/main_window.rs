@@ -83,3 +83,15 @@ pub fn ensure(cx: &mut App) {
         open(cx);
     }
 }
+
+/// Focus the main window and navigate to the requested device's settings.
+pub(crate) fn show_device(device_key: String, cx: &mut App) {
+    open(cx);
+    if let Some(handle) = cx.default_global::<WindowRegistry>().main {
+        let _ = handle.update(cx, |root, _, cx| {
+            if let Ok(view) = root.view().clone().downcast::<AppView>() {
+                view.update(cx, |view, cx| view.request_device(device_key, cx));
+            }
+        });
+    }
+}

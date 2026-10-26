@@ -117,6 +117,8 @@ impl AgentServer {
                 #[cfg(target_os = "macos")]
                 let app_icon = config.app_settings.app_icon;
                 let language = config.app_settings.language.clone();
+                #[cfg(target_os = "linux")]
+                let tray_settings = config.app_settings.clone();
                 match saved {
                     None => self.orchestrator.lock().await.reload_config(config),
                     Some(saved) => self
@@ -138,6 +140,8 @@ impl AgentServer {
                 // and rebuild the macOS menu, whose titles were stamped at
                 // install.
                 openlogi_core::locale::activate(language.as_deref());
+                #[cfg(target_os = "linux")]
+                crate::tray_linux::configure(&tray_settings);
                 #[cfg(target_os = "macos")]
                 crate::tray::relocalize();
                 Ok(revision)

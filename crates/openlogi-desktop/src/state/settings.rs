@@ -38,18 +38,8 @@ impl AppState {
         }
         StateEvent::SettingsChanged.into()
     }
-    /// Toggle the menu-bar (status item) icon preference and persist it. The
-    /// icon is hosted by the always-on agent, which reads this on startup and
-    /// installs the status item only when enabled — so the change takes effect
-    /// the next time the agent launches (a no-restart live toggle would need a
-    /// main-thread hop from the agent's IPC reload). `ReloadConfig` keeps the
-    /// agent's other config in sync meanwhile. An already-set value writes
-    /// nothing and is still reported.
-    ///
-    /// The callers are the menu-bar / notification-area toggle in Settings,
-    /// shown only where there's a tray (macOS + Windows), so the setter is
-    /// gated the same way to stay dead-code-clean on Linux.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    /// Persist tray visibility. Linux applies it on reload; macOS and Windows
+    /// apply it on the next agent launch. An unchanged value writes nothing.
     pub fn commit_show_in_menu_bar(&mut self, enabled: bool) -> StateEvents {
         if self.config.app_settings.show_in_menu_bar == enabled {
             return StateEvent::SettingsChanged.into();

@@ -12,10 +12,9 @@ use std::time::Duration;
 
 use gpui::{AppContext as _, AsyncApp, Task};
 use openlogi_camera::Camera;
-use openlogi_core::brand::DeeplinkCommand;
 use openlogi_core::config::{AssetSourcePreference, Config};
 use openlogi_core::device::{DeviceInventory, StandaloneDevice};
-use openlogi_ipc::AgentSnapshot;
+use openlogi_ipc::{AgentSnapshot, GuiCommand};
 use swr_core::SwrClient;
 use swr_gpui::GpuiRuntime;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -64,8 +63,8 @@ pub(crate) struct Startup {
     pub(crate) updates: UnboundedReceiver<ipc::GuiUpdate>,
     /// Manual asset actions from Settings → Assets.
     pub(crate) asset_commands: UnboundedReceiver<AssetCommand>,
-    /// `openlogi://` URLs, from the tray or another app.
-    pub(crate) deeplinks: UnboundedReceiver<DeeplinkCommand>,
+    /// GUI navigation, from tray commands or `openlogi://` URLs.
+    pub(crate) deeplinks: UnboundedReceiver<GuiCommand>,
 }
 
 /// Start the event loop. Returns once it is spawned; the task runs for the life
@@ -187,7 +186,10 @@ pub(crate) fn spawn(startup: Startup, cx: &mut gpui::App) {
                 // per-key in-flight state makes the exclusion the cache's job.
                 Some(()) = sync_done.recv() => rt.on_sync_finished(cx),
                 Some(cmd) = deeplinks.recv() => {
-                    cx.update(|cx| app::deeplink::dispatch(cmd, cx));
+                    cx.update(|cx| match cmd {
+                        GuiCommand::App(command) => app::deeplink::dispatch(command, cx),
+                        GuiCommand::ShowDevice(device_key) => windows::main_window::show_device(device_key, cx),
+                    });
                 }
                 else => break,
             }

@@ -62,7 +62,10 @@ pub(crate) async fn run(
     config: Config,
     shutdown_requests: ShutdownRequests,
     #[cfg(target_os = "macos")] armed_tx: std::sync::mpsc::Sender<()>,
+    #[cfg(target_os = "linux")] shutdown_tx: shutdown::ShutdownRequestSender,
 ) {
+    #[cfg(target_os = "linux")]
+    let tray_settings = config.app_settings.clone();
     // Reconcile the agent's launch-at-login autostart and clear the legacy GUI
     // LaunchAgent, before `config` moves into the orchestrator.
     autostart::reconcile(config.app_settings.launch_at_login);
@@ -77,6 +80,12 @@ pub(crate) async fn run(
     else {
         return;
     };
+    #[cfg(target_os = "linux")]
+    let _tray = crate::tray_linux::spawn(
+        &tray_settings,
+        Arc::clone(&booted.core.observable),
+        shutdown_tx,
+    );
     #[cfg(target_os = "macos")]
     let Some(wanted) = booted.gate().await else {
         return;
@@ -665,7 +674,6 @@ impl Running {
 
     async fn handle_shutdown_request(&mut self, request: ShutdownRequest) {
         match request {
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
             ShutdownRequest::TrayQuit { core_guard } => {
                 self.shut_down("tray quit", Some(core_guard)).await;
             }

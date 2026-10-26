@@ -109,11 +109,14 @@ fn main() -> Result<()> {
     // URL scheme: `open openlogi://open-settings` from the agent's tray or
     // external apps. Works for both cold start (macOS launches the app then
     // delivers the URL) and warm reactivation (delivered to the running app).
-    let (deeplink_tx, deeplinks) = tokio::sync::mpsc::unbounded_channel::<DeeplinkCommand>();
+    let (deeplink_tx, deeplinks) =
+        tokio::sync::mpsc::unbounded_channel::<openlogi_ipc::GuiCommand>();
+    #[cfg(target_os = "linux")]
+    services::gui_control::spawn(deeplink_tx.clone());
     app.on_open_urls(move |urls| {
         for url in &urls {
             if let Some(cmd) = DeeplinkCommand::parse_url(url) {
-                let _ = deeplink_tx.send(cmd);
+                let _ = deeplink_tx.send(openlogi_ipc::GuiCommand::App(cmd));
             } else {
                 warn!(url, "unknown openlogi:// command — ignoring");
             }

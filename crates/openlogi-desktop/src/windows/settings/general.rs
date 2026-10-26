@@ -64,10 +64,7 @@ pub(super) fn general_page(
         group
     };
 
-    // One `show_in_menu_bar` setting drives the macOS status item and the
-    // Windows notification-area icon (honored at next agent launch); Linux
-    // has no tray, so no switch.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    // The agent owns tray visibility; Linux applies it on config reload.
     let group = group.item(
         SettingItem::new(
             if cfg!(target_os = "macos") {
@@ -84,6 +81,8 @@ pub(super) fn general_page(
         )
         .description(if cfg!(target_os = "macos") {
             tr!("app.menu_bar_visibility_description")
+        } else if cfg!(target_os = "linux") {
+            tr!("app.linux_tray_visibility_description")
         } else {
             tr!("app.notification_area_visibility_description")
         }),

@@ -13,6 +13,10 @@
 //! crate rather than the other way around.
 
 pub mod client;
+mod gui_command;
+pub use gui_command::GuiCommand;
+#[cfg(target_os = "linux")]
+pub mod gui_control;
 mod ipc;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;

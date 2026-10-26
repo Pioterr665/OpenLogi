@@ -10,6 +10,7 @@ use gpui_component::{
     v_flex,
 };
 use openlogi_core::device::{Capabilities, DeviceKind};
+use openlogi_core::device_order::DeviceStableId;
 use openlogi_ipc::InventoryHealth;
 use tracing::info;
 
@@ -197,6 +198,8 @@ impl DetailTab {
 pub struct AppView {
     focus_handle: FocusHandle,
     route: Route,
+    /// A tray request may arrive before the first agent inventory.
+    pending_device: Option<String>,
     mouse_model: Entity<MouseModelView>,
     action_ring_panel: Entity<ActionRingPanel>,
     keyboard_model: Entity<FunctionRowView>,
@@ -294,6 +297,12 @@ impl AppView {
         let app_catalog = cx.new(|cx| AppCatalogPicker::new(profile_icons.clone(), window, cx));
         let app_catalog_obs = cx.observe(&app_catalog, |_, _, cx| cx.notify());
         let state_obs = cx.subscribe(&state, |view, _, event: &StateEvent, cx| {
+            if view.pending_device.is_some() && matches!(event, StateEvent::InventoryChanged) {
+                let pending_view = cx.weak_entity();
+                cx.defer(move |cx| {
+                    let _ = pending_view.update(cx, |view, cx| view.open_pending_device(cx));
+                });
+            }
             if view.repaints_for(event, cx) {
                 cx.notify();
             }
@@ -302,6 +311,7 @@ impl AppView {
         Self {
             focus_handle,
             route: Route::Home,
+            pending_device: None,
             mouse_model,
             action_ring_panel,
             keyboard_model,
@@ -401,6 +411,7 @@ impl AppView {
     /// selection follow [`AppState::select_device`]) and switches the
     /// route to its detail screen.
     fn open_device(&mut self, record_key: String, cx: &mut Context<Self>) {
+        self.pending_device = None;
         AppState::apply(cx, |state| {
             state
                 .devices()
@@ -422,8 +433,40 @@ impl AppView {
     /// Return to the device gallery. Leaves the active-device selection
     /// untouched — the route is purely presentational.
     fn go_home(&mut self, cx: &mut Context<Self>) {
+        self.pending_device = None;
         self.route = Route::Home;
         cx.notify();
+    }
+
+    /// Navigate after inventory arrives, without selecting an unrelated device.
+    pub(crate) fn request_device(&mut self, device_key: String, cx: &mut Context<Self>) {
+        self.pending_device = Some(device_key);
+        self.open_pending_device(cx);
+    }
+
+    fn open_pending_device(&mut self, cx: &mut Context<Self>) {
+        let Some(device_key) = self.pending_device.as_ref() else {
+            return;
+        };
+        let key = AppState::try_read(cx).and_then(|state| {
+            state
+                .devices()
+                .iter()
+                .find(|record| {
+                    DeviceStableId::from_parts(
+                        record.route.as_ref(),
+                        record.slot,
+                        record.serial_number.as_deref(),
+                        record.unit_id,
+                    )
+                    .runtime_key()
+                        == *device_key
+                })
+                .map(DeviceRecord::record_key)
+        });
+        if let Some(key) = key {
+            self.open_device(key, cx);
+        }
     }
 
     /// Attach the window-level back-navigation listeners to `root`: a mouse

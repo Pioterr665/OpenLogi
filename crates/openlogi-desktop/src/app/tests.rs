@@ -9,6 +9,88 @@ use openlogi_core::device::{
 use openlogi_core::hid::DeviceRoute;
 
 #[gpui::test]
+fn tray_selection_waits_for_inventory_and_distinguishes_identical_models(
+    cx: &mut gpui::TestAppContext,
+) {
+    use crate::services::{assets::AssetResolver, i18n::LOCALE_LOCK};
+    use crate::state::tests::direct_inventory;
+    use crate::state::{AppState, Sources};
+    use gpui::AppContext as _;
+    use gpui_component::Root;
+    use openlogi_core::device_order::DeviceStableId;
+
+    let _locale = LOCALE_LOCK.lock().unwrap();
+    let first = direct_inventory([1, 1, 1, 1]);
+    let second = direct_inventory([2, 2, 2, 2]);
+    let target = DeviceStableId::from_parts(
+        DeviceRoute::for_slot(&second, second.paired[0].slot).as_ref(),
+        second.paired[0].slot,
+        None,
+        [2, 2, 2, 2],
+    )
+    .runtime_key();
+    let resolver = AssetResolver::new();
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        crate::ui::theme::register_builtin_themes(cx);
+        let (commands, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        let state = cx.new(|_| {
+            AppState::new(Sources::in_memory(
+                openlogi_core::config::Config::ephemeral(),
+                &resolver,
+                commands,
+            ))
+        });
+        AppState::set_global(state, cx);
+    });
+    let (root, visual) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| super::AppView::new(window, cx));
+        Root::new(view, window, cx)
+    });
+    let view = visual.update(|_, cx| {
+        root.read(cx)
+            .view()
+            .clone()
+            .downcast::<super::AppView>()
+            .unwrap()
+    });
+    visual.update(|_, cx| {
+        view.update(cx, |view, cx| view.request_device(target.clone(), cx));
+        assert_eq!(
+            view.read(cx).pending_device.as_deref(),
+            Some(target.as_str())
+        );
+        assert_eq!(view.read(cx).route, super::Route::Home);
+        AppState::apply(cx, |state| {
+            state.refresh_inventories(&[first, second], &[], &resolver, &[])
+        });
+    });
+    visual.run_until_parked();
+    visual.update(|_, cx| {
+        let state = AppState::try_read(cx).unwrap();
+        let selected = state.current_record().unwrap();
+        assert_eq!(selected.unit_id, [2, 2, 2, 2]);
+        assert_eq!(
+            view.read(cx).route,
+            super::Route::Device {
+                record_key: selected.record_key()
+            }
+        );
+        assert_eq!(view.read(cx).pending_device, None);
+
+        view.update(cx, |view, cx| {
+            view.request_device("missing-device".to_owned(), cx)
+        });
+        view.update(cx, |view, cx| view.go_home(cx));
+        assert_eq!(
+            view.read(cx).pending_device,
+            None,
+            "manual navigation cancels a pending tray request"
+        );
+    });
+}
+
+#[gpui::test]
 fn config_error_folder_button_opens_from_the_active_window(cx: &mut gpui::TestAppContext) {
     use gpui::{AppContext as _, Modifiers};
     use gpui_component::Root;
